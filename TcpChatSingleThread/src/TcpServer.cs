@@ -13,9 +13,6 @@ namespace TcpChatSingleThread.src
 
         private readonly Dictionary<Socket, NetworkStream> _clients = [];
 
-        //private readonly Dictionary<Dictionary<Socket, NetworkStream>, int> _clients = [];
-
-
         private bool isRunning;
 
         public bool IsRunning { get { return isRunning; } }
@@ -42,7 +39,6 @@ namespace TcpChatSingleThread.src
             catch (Exception ex)
             {
                 Console.WriteLine($"Error occured when starting server: {ex.Message}");
-
             }
             finally
             {
@@ -51,7 +47,6 @@ namespace TcpChatSingleThread.src
             }
 
         }
-
         public void Accept()
         {
             if (_socket!.Poll(0, SelectMode.SelectRead))
@@ -99,29 +94,22 @@ namespace TcpChatSingleThread.src
                     string response = Encoding.UTF8.GetString(buffer, 0, bytesRecieved);
                     Console.WriteLine($"Received from {clientSocket.RemoteEndPoint}: {response}");
 
-                    //foreach (var otherClient in _clients)
-                    //{
-                    //    if (otherClient.Key != clientSocket)
-                    //    {
-                    //        try
-                    //        {
-                    //            otherClient.Value.Write(buffer, 0, bytesRecieved);
-                    //        }
-                    //        catch (Exception ex)
-                    //        {
-                    //            Console.WriteLine($"Error broadcasting to {otherClient.Key.RemoteEndPoint}: {ex.Message}");
-                    //            clientsToRemove.Add(otherClient.Key);
-                    //        }
-                    //    }
-                    //}
+                    var failedWriteClients = new List<Socket>();
 
-                    BroadCastMessage(clientSocket, buffer, bytesRecieved, ref clientsToRemove);
+                    if(clientSocket.Poll(0, SelectMode.SelectWrite))
+                        failedWriteClients = BroadCastMessage(clientSocket, buffer, bytesRecieved);
+                        clientsToRemove.AddRange(failedWriteClients);
+
+                    RemoveDisconnectedClients(clientsToRemove);
 
                     Array.Clear(buffer, 0, buffer.Length);
                 }
             }
 
+        }
 
+        public void RemoveDisconnectedClients(List<Socket> clientsToRemove)
+        {
             foreach (var socketToRemove in clientsToRemove.Distinct())
             {
                 if (_clients.TryGetValue(socketToRemove, out NetworkStream? streamToClose))
@@ -132,10 +120,14 @@ namespace TcpChatSingleThread.src
                     _clients.Remove(socketToRemove);
                 }
             }
+
         }
 
-        public void BroadCastMessage(Socket? exclude, byte[] buffer, int bytesToSent, ref List<Socket> clientsToRemove)
+        public List<Socket> BroadCastMessage(Socket? exclude, byte[] buffer, int bytesToSent)
         {
+
+            var failedClientWrites = new List<Socket>();
+
             foreach (var otherClient in _clients)
             {
                 if (otherClient.Key != exclude)
@@ -147,11 +139,11 @@ namespace TcpChatSingleThread.src
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Error broadcasting to {otherClient.Key.RemoteEndPoint}: {ex.Message}");
-                        clientsToRemove.Add(otherClient.Key);
+                        failedClientWrites.Add(otherClient.Key);
                     }
                 }
             }
-
+            return failedClientWrites;
         }
 
         public void Stop()
