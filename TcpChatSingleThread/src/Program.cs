@@ -17,10 +17,7 @@ namespace TcpChatSingleThread.src
             while (server.IsRunning)
             {
                 server.Accept();
-                //server.Read(buffer);
-                //server.Write(buffer);
                 server.HandleClients(ref buffer);
-
             }
 
             server.Stop();

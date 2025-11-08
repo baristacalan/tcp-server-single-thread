@@ -34,7 +34,7 @@ namespace TcpChatSingleThread.src
             try
             {
                 _socket!.Bind(enpoint);
-                _socket.Listen();
+                _socket.Listen(); 
             }
             catch (Exception ex)
             {
@@ -103,6 +103,8 @@ namespace TcpChatSingleThread.src
                     RemoveDisconnectedClients(clientsToRemove);
 
                     Array.Clear(buffer, 0, buffer.Length);
+
+                    clientStream.Flush();
                 }
             }
 
